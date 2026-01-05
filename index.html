@@ -10,9 +10,7 @@
     color: #e5e7eb;
     padding: 20px;
   }
-  h1 {
-    text-align: center;
-  }
+  h1 { text-align: center; }
   .card {
     background: #064e3b;
     border-radius: 10px;
@@ -21,18 +19,9 @@
     max-width: 600px;
     box-shadow: 0 0 15px rgba(0,255,170,0.3);
   }
-  .no-ev {
-    background: #1f2933;
-    text-align: center;
-  }
-  .ev {
-    color: #34d399;
-    font-weight: bold;
-  }
-  .small {
-    opacity: 0.8;
-    font-size: 0.9em;
-  }
+  .no-ev { background: #1f2933; text-align: center; }
+  .ev { color: #34d399; font-weight: bold; }
+  .small { opacity: 0.8; font-size: 0.9em; }
 </style>
 </head>
 
@@ -46,21 +35,31 @@
 <script>
 const EV_MIN = 0.01;
 
+// ----- PROXY CORS -----
+// Usamos un proxy gratuito para evitar bloqueos CORS
+const CORS_PROXY = "https://api.allorigins.win/raw?url=";
+
 // ----- CLIMA LONDRES -----
 async function getRainProbability() {
-  const url =
-    "https://api.open-meteo.com/v1/forecast?latitude=51.5072&longitude=-0.1276&hourly=precipitation_probability";
-  const res = await fetch(url);
-  const data = await res.json();
-  return data.hourly.precipitation_probability[0] / 100;
+  try {
+    const url = encodeURIComponent(
+      "https://api.open-meteo.com/v1/forecast?latitude=51.5072&longitude=-0.1276&hourly=precipitation_probability"
+    );
+    const res = await fetch(`${CORS_PROXY}${url}`);
+    const data = await res.json();
+    return data.hourly.precipitation_probability[0] / 100;
+  } catch (e) { return null; }
 }
 
 // ----- POLYMARKET -----
 async function getMarkets() {
-  const res = await fetch(
-    "https://gamma-api.polymarket.com/markets?status=open"
-  );
-  return await res.json();
+  try {
+    const url = encodeURIComponent(
+      "https://gamma-api.polymarket.com/markets?status=open"
+    );
+    const res = await fetch(`${CORS_PROXY}${url}`);
+    return await res.json();
+  } catch (e) { return []; }
 }
 
 // ----- MAIN -----
@@ -70,6 +69,11 @@ async function runBot() {
   try {
     const rainProb = await getRainProbability();
     const markets = await getMarkets();
+
+    if (!rainProb || !markets.length) {
+      container.innerHTML = "Error cargando datos o API bloqueada.";
+      return;
+    }
 
     let found = false;
 
@@ -89,7 +93,7 @@ async function runBot() {
           <p><strong>Mercado:</strong><br>${m.question}</p>
           <p>Precio YES: ${price.toFixed(2)}</p>
           <p>Probabilidad real: ${rainProb.toFixed(2)}</p>
-          <p><strong>EV: +${(ev * 100).toFixed(2)}%</strong></p>
+          <p><strong>EV: +${(ev*100).toFixed(2)}%</strong></p>
           <p class="small">➡️ Acción: Apostar YES</p>
         `;
         return;
