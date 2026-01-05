@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Polymarket EV+ Bot</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: #e5e7eb;
+    padding: 20px;
+  }
+  h1 {
+    text-align: center;
+  }
+  .card {
+    background: #064e3b;
+    border-radius: 10px;
+    padding: 15px;
+    margin: 15px auto;
+    max-width: 600px;
+    box-shadow: 0 0 15px rgba(0,255,170,0.3);
+  }
+  .no-ev {
+    background: #1f2933;
+    text-align: center;
+  }
+  .ev {
+    color: #34d399;
+    font-weight: bold;
+  }
+  .small {
+    opacity: 0.8;
+    font-size: 0.9em;
+  }
+</style>
+</head>
+
+<body>
+
+<h1>📈 Polymarket EV+ Bot</h1>
+<div id="content" class="card no-ev">
+  Cargando mercados...
+</div>
+
+<script>
+const EV_MIN = 0.01;
+
+// ----- CLIMA LONDRES -----
+async function getRainProbability() {
+  const url =
+    "https://api.open-meteo.com/v1/forecast?latitude=51.5072&longitude=-0.1276&hourly=precipitation_probability";
+  const res = await fetch(url);
+  const data = await res.json();
+  return data.hourly.precipitation_probability[0] / 100;
+}
+
+// ----- POLYMARKET -----
+async function getMarkets() {
+  const res = await fetch(
+    "https://gamma-api.polymarket.com/markets?status=open"
+  );
+  return await res.json();
+}
+
+// ----- MAIN -----
+async function runBot() {
+  const container = document.getElementById("content");
+
+  try {
+    const rainProb = await getRainProbability();
+    const markets = await getMarkets();
+
+    let found = false;
+
+    for (const m of markets) {
+      if (!m.question) continue;
+      if (!m.question.toLowerCase().includes("london")) continue;
+      if (!m.outcomePrices || !m.outcomePrices.YES) continue;
+
+      const price = m.outcomePrices.YES;
+      const ev = rainProb - price;
+
+      if (ev >= EV_MIN) {
+        found = true;
+        container.className = "card";
+        container.innerHTML = `
+          <div class="ev">EV+ DETECTADO</div>
+          <p><strong>Mercado:</strong><br>${m.question}</p>
+          <p>Precio YES: ${price.toFixed(2)}</p>
+          <p>Probabilidad real: ${rainProb.toFixed(2)}</p>
+          <p><strong>EV: +${(ev * 100).toFixed(2)}%</strong></p>
+          <p class="small">➡️ Acción: Apostar YES</p>
+        `;
+        return;
+      }
+    }
+
+    if (!found) {
+      container.className = "card no-ev";
+      container.innerHTML = "No hay oportunidades EV+ ahora mismo.";
+    }
+
+  } catch (e) {
+    container.innerHTML = "Error cargando datos.";
+  }
+}
+
+// Ejecutar al abrir
+runBot();
+
+// Repetir cada 30 minutos
+setInterval(runBot, 30 * 60 * 1000);
+</script>
+
+</body>
+</html>
